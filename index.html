@@ -1,653 +1,72 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Emprendimientos de Vijes</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css">
-<style>
-  :root {
-    --color-background-primary: #ffffff;
-    --color-background-secondary: #f5f5f3;
-    --color-background-tertiary: #efefec;
-    --color-text-primary: #1a1a18;
-    --color-text-secondary: #6b6b66;
-    --color-text-tertiary: #9e9e98;
-    --color-border-tertiary: rgba(0,0,0,0.12);
-    --color-border-secondary: rgba(0,0,0,0.25);
-    --color-text-danger: #a32d2d;
-    --border-radius-md: 8px;
-    --border-radius-lg: 12px;
-    --font-sans: system-ui, -apple-system, sans-serif;
+const SHEET_ID = "17zC3I3-02CB8tBQxi3DFXup8t-zVlwlbdwxI9VO9ePg";
+
+function doGet(e) { return handleRequest(e); }
+function doPost(e) { return handleRequest(e); }
+
+function handleRequest(e) {
+  const p = e.parameter;
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const action = p.action;
+
+  if (action === "getCitas") {
+    const sh = ss.getSheetByName("Citas") || ss.insertSheet("Citas");
+    const rows = sh.getDataRange().getValues();
+    if (rows.length <= 1) return json([]);
+    return json(rows.slice(1).map(r => ({
+      id:r[0], dateStr:r[1], hora:r[2], horaFmt:r[3],
+      catName:r[4], itemName:r[5], fmt:r[6], asistio:r[7]==="true", noAsiste:r[8]==="true"
+    })));
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: var(--font-sans); background: #f8f8f6; min-height: 100vh; padding: 2rem 1rem; }
-  .wrapper { max-width: 720px; margin: 0 auto; }
-
-  .topbar { margin-bottom: 1.25rem; }
-  .topbar h1 { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
-  .topbar p { font-size: 14px; color: var(--color-text-secondary); margin-top: 3px; }
-
-  .tab-row { display: flex; gap: 6px; margin-bottom: 1.25rem; flex-wrap: wrap; }
-  .tab-btn { font-size: 13px; padding: 6px 14px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: transparent; color: var(--color-text-secondary); cursor: pointer; transition: all 0.12s; }
-  .tab-btn.active { background: #E1F5EE; border-color: #1D9E75; color: #0F6E56; font-weight: 500; }
-  .tab-btn:hover:not(.active) { background: var(--color-background-secondary); }
-
-  .section { margin-bottom: 1.5rem; }
-  .sec-label { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 8px; }
-
-  .cats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
-  .cat-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 12px 14px; cursor: pointer; transition: all 0.12s; }
-  .cat-card:hover { border-color: var(--color-border-secondary); background: var(--color-background-secondary); }
-  .cat-card.selected { border: 2px solid #1D9E75; background: #E1F5EE; }
-  .cat-card.selected .cat-name, .cat-card.selected .cat-icon { color: #0F6E56; }
-  .cat-icon { font-size: 20px; color: var(--color-text-secondary); margin-bottom: 6px; }
-  .cat-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); line-height: 1.4; }
-
-  .items-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 8px; }
-  .item-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 10px 12px; cursor: pointer; font-size: 13px; color: var(--color-text-primary); transition: all 0.12s; }
-  .item-card:hover { border-color: var(--color-border-secondary); background: var(--color-background-secondary); }
-  .item-card.selected { border: 1.5px solid #1D9E75; background: #E1F5EE; color: #0F6E56; font-weight: 500; }
-  .item-icon { font-size: 15px; margin-bottom: 3px; }
-
-  .date-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .date-row input[type="date"] { flex: 1; min-width: 160px; max-width: 240px; padding: 8px 10px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); font-size: 13px; font-family: var(--font-sans); background: var(--color-background-primary); color: var(--color-text-primary); }
-  .note { font-size: 12px; color: var(--color-text-tertiary); }
-
-  .confirm-btn { width: 100%; padding: 11px; font-size: 14px; font-weight: 500; background: #1D9E75; color: #E1F5EE; border: none; border-radius: var(--border-radius-md); cursor: pointer; margin-top: 1rem; transition: opacity 0.15s; }
-  .confirm-btn:hover { opacity: 0.88; }
-  .confirm-btn:disabled { opacity: 0.4; cursor: default; }
-
-  .summary { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-top: 1rem; }
-  .sum-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 8px; }
-  .sum-row { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 4px; display: flex; gap: 8px; align-items: flex-start; }
-  .sum-row i { color: #1D9E75; font-size: 15px; margin-top: 1px; flex-shrink: 0; }
-  .sum-val { color: var(--color-text-primary); }
-  .reset-link { font-size: 12px; color: var(--color-text-secondary); cursor: pointer; text-decoration: underline; margin-top: 10px; display: inline-block; }
-  .reset-link:hover { color: var(--color-text-primary); }
-
-  .add-form { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
-  .add-form p { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 10px; }
-  .form-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .form-row input, .form-row select { flex: 1; min-width: 140px; padding: 8px 10px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); font-size: 13px; font-family: var(--font-sans); background: var(--color-background-primary); color: var(--color-text-primary); }
-  .form-row button { flex-shrink: 0; padding: 8px 14px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: transparent; font-size: 13px; cursor: pointer; color: var(--color-text-primary); font-family: var(--font-sans); }
-  .form-row button:hover { background: var(--color-background-secondary); }
-  .err { font-size: 12px; color: var(--color-text-danger); margin-top: 6px; }
-  .del-btn { background: none; border: none; cursor: pointer; color: var(--color-text-tertiary); font-size: 14px; padding: 2px; line-height: 1; }
-  .del-btn:hover { color: #E24B4A; }
-
-  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .cal-nav { display: flex; align-items: center; gap: 8px; }
-  .cal-nav button { background: none; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 4px 10px; cursor: pointer; font-size: 13px; color: var(--color-text-primary); font-family: var(--font-sans); }
-  .cal-nav button:hover { background: var(--color-background-secondary); }
-  .cal-month { font-size: 15px; font-weight: 500; color: var(--color-text-primary); min-width: 160px; text-align: center; }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
-  .cal-day-name { font-size: 11px; color: var(--color-text-tertiary); text-align: center; padding: 4px 0; font-weight: 500; }
-  .cal-cell { min-height: 64px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 4px; transition: border-color 0.1s; }
-  .cal-cell.other-month { background: var(--color-background-secondary); opacity: 0.5; }
-  .cal-cell.today { border-color: #1D9E75; border-width: 1.5px; }
-  .cal-cell.has-events { cursor: pointer; }
-  .cal-cell.has-events:hover { border-color: #1D9E75; background: #E1F5EE; }
-  .cal-num { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 3px; font-weight: 500; }
-  .cal-cell.today .cal-num { color: #0F6E56; }
-  .cal-event { background: #1D9E75; color: #E1F5EE; font-size: 10px; border-radius: 3px; padding: 2px 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  .cal-more { font-size: 10px; color: #1D9E75; padding: 1px 2px; }
-
-  .detail-panel { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-top: 12px; }
-  .detail-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 10px; }
-  .cita-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-top: 0.5px solid var(--color-border-tertiary); }
-  .cita-row:first-of-type { border-top: none; padding-top: 0; }
-  .cita-dot { width: 8px; height: 8px; border-radius: 50%; background: #1D9E75; margin-top: 5px; flex-shrink: 0; }
-  .cita-info { flex: 1; }
-  .cita-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
-  .cita-cat { font-size: 12px; color: var(--color-text-secondary); }
-  .cita-del { background: none; border: none; cursor: pointer; color: var(--color-text-tertiary); font-size: 14px; padding: 2px; }
-  .cita-del:hover { color: #E24B4A; }
-  .no-citas { font-size: 13px; color: var(--color-text-tertiary); padding: 8px 0; }
-
-  .hidden { display: none !important; }
-  .card-block { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 12px 14px; margin-bottom: 8px; }
-  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-</style>
-</head>
-<body>
-<div class="wrapper">
-
-  <div class="topbar">
-    <h1>Emprendimientos de Vijes</h1>
-    <p>Reserva visitas y consulta el calendario de citas.</p>
-  </div>
-
-  <div class="tab-row">
-    <button class="tab-btn active" onclick="switchTab('visita')"><i class="ti ti-calendar-plus"></i> Reservar visita</button>
-    <button class="tab-btn" onclick="switchTab('calendario')"><i class="ti ti-calendar-month"></i> Calendario</button>
-    <button class="tab-btn" onclick="switchTab('admin')"><i class="ti ti-settings"></i> Administrar</button>
-  </div>
-
-  <!-- TAB VISITA -->
-  <div id="tabVisita">
-    <div class="section">
-      <p class="sec-label">1. Elige una categoría</p>
-      <div class="cats-grid" id="visitaCats"></div>
-    </div>
-    <div class="section hidden" id="visitaItemsSec">
-      <p class="sec-label" id="visitaItemsLabel">2. Elige un emprendimiento</p>
-      <select id="visitaItemsSelect" onchange="selectItemFromSelect()" style="width:100%;padding:9px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;font-family:var(--font-sans);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer;">
-        <option value="">— Selecciona —</option>
-      </select>
-      <div id="otroInput" class="hidden" style="margin-top:8px;display:flex;gap:8px;align-items:center;">
-        <input type="text" id="otroNombre" placeholder="Escribe el nombre del emprendimiento" maxlength="80" style="flex:1;padding:9px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;font-family:var(--font-sans);background:var(--color-background-primary);color:var(--color-text-primary);" oninput="checkConfirmOtro()">
-      </div>
-    </div>
-    <div class="section hidden" id="visitaDateSec">
-      <p class="sec-label">3. Fecha y hora de visita</p>
-      <div class="date-row">
-        <input type="date" id="visitDate" oninput="checkConfirm()">
-        <input type="time" id="visitTime" oninput="checkConfirm()" style="width:130px;padding:8px 10px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;font-family:var(--font-sans);background:var(--color-background-primary);color:var(--color-text-primary);">
-        <span class="note">Fecha y hora de la visita</span>
-      </div>
-      <button class="confirm-btn" id="confirmBtn" disabled onclick="doConfirm()">
-        <i class="ti ti-check"></i> Confirmar visita
-      </button>
-    </div>
-    <div class="hidden" id="summaryDiv">
-      <div class="summary">
-        <p class="sum-title"><i class="ti ti-circle-check" style="color:#1D9E75;vertical-align:-2px;margin-right:6px"></i>¡Visita registrada!</p>
-        <div class="sum-row"><i class="ti ti-tag"></i><span id="sumCat" class="sum-val"></span></div>
-        <div class="sum-row"><i class="ti ti-building-store"></i><span id="sumItem" class="sum-val"></span></div>
-        <div class="sum-row"><i class="ti ti-calendar"></i><span id="sumDate" class="sum-val"></span></div>
-        <div id="asistioRow" class="sum-row hidden"><i class="ti ti-circle-check" style="color:#1D9E75"></i><span class="sum-val" style="color:#0F6E56;font-weight:500">¡Asistencia registrada!</span></div>
-        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-          <button onclick="marcarAsistio()" id="btnAsistio" style="padding:7px 16px;font-size:13px;font-weight:500;background:#1D9E75;color:#E1F5EE;border:none;border-radius:var(--border-radius-md);cursor:pointer;font-family:var(--font-sans);" title="Confirmar asistencia a esta visita"><i class="ti ti-check"></i> Asisto</button>
-          <span class="reset-link" onclick="resetVisita()">Hacer otra reserva</span>
-          <span class="reset-link" style="color:#1D9E75" onclick="switchTab('calendario')">Ver en calendario <i class="ti ti-arrow-right" style="font-size:12px"></i></span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB CALENDARIO -->
-  <div id="tabCalendario" class="hidden">
-    <div class="cal-header">
-      <div class="cal-nav">
-        <button onclick="changeMonth(-1)"><i class="ti ti-chevron-left"></i></button>
-        <span class="cal-month" id="calMonthLabel"></span>
-        <button onclick="changeMonth(1)"><i class="ti ti-chevron-right"></i></button>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:12px;color:var(--color-text-tertiary)" id="calCitasCount"></span>
-        <button id="btnRefresh" onclick="recargarCitas()" style="background:none;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:4px 10px;cursor:pointer;font-size:13px;color:var(--color-text-primary);font-family:var(--font-sans);display:flex;align-items:center;gap:4px"><i class="ti ti-refresh"></i> Actualizar</button>
-      </div>
-    </div>
-    <div class="cal-grid" id="calDayNames"></div>
-    <div class="cal-grid" style="margin-top:3px" id="calCells"></div>
-    <div id="detailPanel" class="hidden"></div>
-  </div>
-
-  <!-- TAB ADMIN -->
-  <div id="tabAdmin" class="hidden">
-    <div class="add-form">
-      <p><i class="ti ti-folder-plus" style="vertical-align:-2px;margin-right:6px"></i>Agregar nueva categoría</p>
-      <div class="form-row">
-        <input type="text" id="newCatName" placeholder="Nombre de la categoría" maxlength="60">
-        <button onclick="addCategory()"><i class="ti ti-plus"></i> Agregar</button>
-      </div>
-      <p class="err hidden" id="errCat">Escribe un nombre para la categoría.</p>
-    </div>
-    <div class="add-form">
-      <p><i class="ti ti-building-plus" style="vertical-align:-2px;margin-right:6px"></i>Agregar emprendimiento a una categoría</p>
-      <div class="form-row">
-        <select id="empCatSel"></select>
-        <input type="text" id="newEmpName" placeholder="Nombre del emprendimiento" maxlength="60">
-        <button onclick="addEmprendimiento()"><i class="ti ti-plus"></i> Agregar</button>
-      </div>
-      <p class="err hidden" id="errEmp">Completa todos los campos.</p>
-    </div>
-    <div class="section">
-      <p class="sec-label">Categorías y emprendimientos actuales</p>
-      <div id="adminList"></div>
-    </div>
-  </div>
-
-</div>
-
-<script>
-const GS_URL="https://script.google.com/macros/s/AKfycbyk3UTkWPEfTTnMACLpJ2bkanC_cCKylU_rag57Bj5nxBBcazDNkWQ-OpJpk7Tbj6x2/exec";
-
-async function gsGet(params){
-  const url=GS_URL+"?"+new URLSearchParams(params);
-  const r=await fetch(url);
-  return r.json();
-}
-async function gsPost(params){
-  const fd=new FormData();
-  Object.entries(params).forEach(([k,v])=>fd.append(k,v));
-  const r=await fetch(GS_URL,{method:"POST",body:fd});
-  return r.json();
-}
-
-function toast(msg,ok=true){
-  let t=document.getElementById("toast");
-  if(!t){t=document.createElement("div");t.id="toast";t.style.cssText="position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);padding:9px 18px;border-radius:8px;font-size:13px;font-family:system-ui;z-index:9999;transition:opacity 0.3s;pointer-events:none";document.body.appendChild(t);}
-  t.textContent=msg;
-  t.style.background=ok?"#1D9E75":"#a32d2d";
-  t.style.color="#fff";
-  t.style.opacity="1";
-  clearTimeout(t._t);
-  t._t=setTimeout(()=>t.style.opacity="0",2800);
-}
-
-function setLoading(msg){
-  let el=document.getElementById("loadingBar");
-  if(!el){el=document.createElement("div");el.id="loadingBar";el.style.cssText="position:fixed;top:0;left:0;width:100%;padding:8px;background:#E1F5EE;color:#0F6E56;font-size:13px;text-align:center;z-index:9998;font-family:system-ui;";document.body.appendChild(el);}
-  if(msg){el.textContent=msg;el.style.display="block";}
-  else el.style.display="none";
-}
-
-const ICONS=["ti-tools-kitchen-2","ti-basket","ti-candy","ti-palette","ti-bed","ti-map-pin","ti-star","ti-leaf","ti-building","ti-home","ti-coffee","ti-gift","ti-plant","ti-route","ti-mountain","ti-building-arch","ti-sparkles","ti-tractor","ti-bottle","ti-meat"];
-function rndIcon(){return ICONS[Math.floor(Math.random()*ICONS.length)];}
-
-const DEFAULT_DATA=[
-  {id:"gs",name:"Gastronomía – Servicios",icon:"ti-tools-kitchen-2",items:[{name:"Restaurantes",icon:"ti-tools-kitchen-2"},{name:"Café Forjar",icon:"ti-coffee"},{name:"Casa Wber",icon:"ti-home"}]},
-  {id:"gp",name:"Gastronomía – Productos",icon:"ti-basket",items:[{name:"Longaniza",icon:"ti-meat"},{name:"Yogurth",icon:"ti-bottle"},{name:"Mercado campesino",icon:"ti-tractor"},{name:"Productos del campo",icon:"ti-plant"}]},
-  {id:"le",name:"Línea especial",icon:"ti-candy",items:[{name:"Dulce de manjar blanco",icon:"ti-candy"}]},
-  {id:"ar",name:"Artesanías y manualidades",icon:"ti-palette",items:[{name:"Recuerdos de Vijes",icon:"ti-gift"}]},
-  {id:"ho",name:"Hospedaje",icon:"ti-bed",items:[{name:"Casa Blanca",icon:"ti-home-2"},{name:"Villa Soledad",icon:"ti-home-2"}]},
-  {id:"ru",name:"Rutas turísticas",icon:"ti-map-pin",items:[{name:"Experiencias turísticas",icon:"ti-sparkles"},{name:"Recorridos",icon:"ti-route"},{name:"Atractivos turísticos de Vijes",icon:"ti-mountain"}]}
-];
-
-let data=JSON.parse(JSON.stringify(DEFAULT_DATA));
-
-let citas=[];
-let selCat=null,selItem=null;
-let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
-let selectedCalDay=null;
-
-const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const DIAS=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
-
-function switchTab(t){
-  ["visita","calendario","admin"].forEach(id=>{
-    document.getElementById("tab"+id.charAt(0).toUpperCase()+id.slice(1)).classList.toggle("hidden",id!==t);
-  });
-  document.querySelectorAll(".tab-btn").forEach((b,i)=>{
-    b.classList.toggle("active",["visita","calendario","admin"][i]===t);
-  });
-  if(t==="calendario") renderCalendar();
-  if(t==="admin"){renderAdmin();renderEmpCatSel();}
-}
-
-function renderVisitaCats(){
-  const g=document.getElementById("visitaCats");
-  g.innerHTML="";
-  data.forEach(cat=>{
-    const d=document.createElement("div");
-    d.className="cat-card"+(selCat&&selCat.id===cat.id?" selected":"");
-    d.innerHTML=`<div class="cat-icon"><i class="ti ${cat.icon}"></i></div><div class="cat-name">${cat.name}</div>`;
-    d.onclick=()=>selectCat(cat);
-    g.appendChild(d);
-  });
-}
-
-function selectCat(cat){
-  selCat=cat;selItem=null;
-  document.getElementById("visitDate").value="";
-  document.getElementById("visitTime").value="";
-  renderVisitaCats();renderVisitaItems();
-  document.getElementById("visitaDateSec").classList.add("hidden");
-  document.getElementById("summaryDiv").classList.add("hidden");
-  document.getElementById("confirmBtn").disabled=true;
-}
-
-function renderVisitaItems(){
-  if(!selCat)return;
-  document.getElementById("visitaItemsLabel").textContent="2. Elige un emprendimiento en "+selCat.name+":";
-  const sel=document.getElementById("visitaItemsSelect");
-  sel.innerHTML='<option value="">— Selecciona —</option>'+selCat.items.map(item=>`<option value="${item.name}">${item.name}</option>`).join("")+'<option value="__otro__">Otro...</option>';
-  sel.value=selItem?selItem.name:"";
-  document.getElementById("otroInput").classList.add("hidden");
-  document.getElementById("otroNombre").value="";
-  document.getElementById("visitaItemsSec").classList.remove("hidden");
-}
-
-function selectItemFromSelect(){
-  const val=document.getElementById("visitaItemsSelect").value;
-  const otroDiv=document.getElementById("otroInput");
-  if(!val){
-    selItem=null;
-    otroDiv.classList.add("hidden");
-    document.getElementById("visitaDateSec").classList.add("hidden");
-    document.getElementById("confirmBtn").disabled=true;
-    return;
+  if (action === "addCita") {
+    const sh = ss.getSheetByName("Citas") || ss.insertSheet("Citas");
+    if (sh.getLastRow() === 0) sh.appendRow(["id","dateStr","hora","horaFmt","catName","itemName","fmt","asistio","noAsiste"]);
+    sh.appendRow([p.id, p.dateStr, p.hora, p.horaFmt, p.catName, p.itemName, p.fmt, "false", "false"]);
+    return json({ok:true});
   }
-  if(val==="__otro__"){
-    selItem=null;
-    otroDiv.classList.remove("hidden");
-    document.getElementById("otroNombre").focus();
-    document.getElementById("visitaDateSec").classList.remove("hidden");
-    document.getElementById("visitDate").value="";
-    document.getElementById("visitTime").value="";
-    document.getElementById("confirmBtn").disabled=true;
-    document.getElementById("summaryDiv").classList.add("hidden");
-    return;
-  }
-  otroDiv.classList.add("hidden");
-  selItem=selCat.items.find(i=>i.name===val)||{name:val,icon:"ti-dots"};
-  document.getElementById("visitaDateSec").classList.remove("hidden");
-  document.getElementById("visitDate").value="";
-  document.getElementById("visitTime").value="";
-  document.getElementById("confirmBtn").disabled=true;
-  document.getElementById("summaryDiv").classList.add("hidden");
-}
-
-function checkConfirmOtro(){
-  const nombre=document.getElementById("otroNombre").value.trim();
-  if(nombre) selItem={name:nombre,icon:"ti-dots"};
-  else selItem=null;
-  checkConfirm();
-}
-
-async function marcarAsistio(){
-  document.getElementById("asistioRow").classList.remove("hidden");
-  document.getElementById("btnAsistio").disabled=true;
-  document.getElementById("btnAsistio").style.opacity="0.45";
-  if(citas.length){
-    const ultima=citas[citas.length-1];
-    ultima.asistio=true;
-    try{
-      await gsPost({action:"updateAsistio",id:ultima.id});
-      toast("Asistencia registrada ✓");
-    }catch(e){toast("Sin conexión, marcado localmente",false);}
-  }
-  if(!document.getElementById("tabCalendario").classList.contains("hidden")) renderCalendar();
-}
-
-
-function checkConfirm(){
-  const d=document.getElementById("visitDate").value;
-  const t=document.getElementById("visitTime").value;
-  const sel=document.getElementById("visitaItemsSelect").value;
-  const otro=document.getElementById("otroNombre").value.trim();
-  const itemOk=sel==="__otro__"?otro.length>0:selItem!==null;
-  document.getElementById("confirmBtn").disabled=!(d&&t&&itemOk);
-}
-
-async function doConfirm(){
-  const v=document.getElementById("visitDate").value;
-  const t=document.getElementById("visitTime").value;
-  if(!selCat||!selItem||!v||!t)return;
-  const d=new Date(v+"T12:00:00");
-  const fmt=d.toLocaleDateString("es-CO",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-  const [hh,mm]=t.split(":");
-  const h=parseInt(hh),ampm=h>=12?"p.m.":"a.m.",h12=h%12||12;
-  const horaFmt=`${h12}:${mm} ${ampm}`;
-  const cita={id:"cita"+Date.now(),dateStr:v,hora:t,horaFmt,catName:selCat.name,itemName:selItem.name,fmt,asistio:false};
-  document.getElementById("confirmBtn").disabled=true;
-  setLoading("Guardando cita…");
-  try{
-    await gsPost({action:"addCita",...cita,asistio:"false"});
-    citas.push(cita);
-    toast("¡Cita guardada!");
-  }catch(e){
-    citas.push(cita);
-    toast("Sin conexión, cita guardada localmente",false);
-  }
-  setLoading(null);
-  document.getElementById("sumCat").textContent="Categoría: "+selCat.name;
-  document.getElementById("sumItem").textContent="Emprendimiento: "+selItem.name;
-  document.getElementById("sumDate").textContent="Fecha: "+fmt+" a las "+horaFmt;
-  document.getElementById("asistioRow").classList.add("hidden");
-  const btn=document.getElementById("btnAsistio");btn.disabled=false;btn.style.opacity="1";
-  document.getElementById("summaryDiv").classList.remove("hidden");
-  document.getElementById("visitaDateSec").classList.add("hidden");
-  document.getElementById("visitaItemsSec").classList.add("hidden");
-  document.querySelectorAll(".cat-card").forEach(c=>c.classList.remove("selected"));
-  calYear=d.getFullYear();calMonth=d.getMonth();
-}
-
-function resetVisita(){
-  selCat=null;selItem=null;
-  document.getElementById("visitDate").value="";
-  document.getElementById("visitTime").value="";
-  document.getElementById("visitaItemsSelect").value="";
-  document.getElementById("otroInput").classList.add("hidden");
-  document.getElementById("otroNombre").value="";
-  document.getElementById("asistioRow").classList.add("hidden");
-  const btn=document.getElementById("btnAsistio");
-  btn.disabled=false;btn.style.opacity="1";
-  document.getElementById("summaryDiv").classList.add("hidden");
-  document.getElementById("visitaItemsSec").classList.add("hidden");
-  document.getElementById("visitaDateSec").classList.add("hidden");
-  document.getElementById("confirmBtn").disabled=true;
-  renderVisitaCats();
-}
-
-async function recargarCitas(){
-  const btn=document.getElementById("btnRefresh");
-  btn.disabled=true;
-  btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Actualizando…';
-  try{
-    const cs=await gsGet({action:"getCitas"});
-    if(Array.isArray(cs)) citas=cs;
-    selectedCalDay=null;
-    renderCalendar();
-    toast("Citas actualizadas ✓");
-  }catch(e){
-    toast("Sin conexión",false);
-  }
-  btn.disabled=false;
-  btn.innerHTML='<i class="ti ti-refresh"></i> Actualizar';
-}
-
-function changeMonth(dir){
-  calMonth+=dir;
-  if(calMonth>11){calMonth=0;calYear++;}
-  if(calMonth<0){calMonth=11;calYear--;}
-  selectedCalDay=null;
-  renderCalendar();
-}
-
-function renderCalendar(){
-  document.getElementById("calMonthLabel").textContent=MESES[calMonth]+" "+calYear;
-  const citasThisMonth=citas.filter(c=>{const d=new Date(c.dateStr+"T12:00:00");return d.getFullYear()===calYear&&d.getMonth()===calMonth;});
-  document.getElementById("calCitasCount").textContent=citasThisMonth.length===0?"Sin citas este mes":citasThisMonth.length===1?"1 cita este mes":citasThisMonth.length+" citas este mes";
-
-  const namesEl=document.getElementById("calDayNames");
-  namesEl.innerHTML=DIAS.map(d=>`<div class="cal-day-name">${d}</div>`).join("");
-
-  const today=new Date();
-  const firstDay=new Date(calYear,calMonth,1).getDay();
-  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
-  const daysInPrev=new Date(calYear,calMonth,0).getDate();
-
-  const cells=document.getElementById("calCells");
-  cells.innerHTML="";
-
-  const total=Math.ceil((firstDay+daysInMonth)/7)*7;
-  for(let i=0;i<total;i++){
-    let day,isOther=false;
-    if(i<firstDay){day=daysInPrev-firstDay+i+1;isOther=true;}
-    else if(i>=firstDay+daysInMonth){day=i-firstDay-daysInMonth+1;isOther=true;}
-    else{day=i-firstDay+1;}
-
-    const cellDate=isOther?null:new Date(calYear,calMonth,day);
-    const dateStr=cellDate?`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`:null;
-    const dayCitas=dateStr?citas.filter(c=>c.dateStr===dateStr):[];
-    const isToday=cellDate&&cellDate.getDate()===today.getDate()&&cellDate.getMonth()===today.getMonth()&&cellDate.getFullYear()===today.getFullYear();
-    const isSelected=dateStr&&selectedCalDay===dateStr;
-
-    const cell=document.createElement("div");
-    cell.className="cal-cell"+(isOther?" other-month":"")+(isToday?" today":"")+(dayCitas.length?" has-events":"");
-    if(isSelected) cell.style.cssText="border-color:#1D9E75;border-width:2px;background:#E1F5EE";
-
-    let inner=`<div class="cal-num">${day}</div>`;
-    dayCitas.slice(0,2).forEach(c=>{inner+=`<div class="cal-event" title="${c.itemName}">${c.horaFmt?c.horaFmt+' ':''} ${c.itemName}</div>`;});
-    if(dayCitas.length>2) inner+=`<div class="cal-more">+${dayCitas.length-2} más</div>`;
-    cell.innerHTML=inner;
-
-    if(dayCitas.length&&dateStr){
-      cell.onclick=(()=>{const ds=dateStr,dc=dayCitas;return()=>{selectedCalDay=ds;renderCalendar();showDetail(ds,dc);}})();
+  if (action === "updateAsistio") {
+    const sh = ss.getSheetByName("Citas");
+    if (!sh) return json({ok:false});
+    const rows = sh.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === p.id) { sh.getRange(i+1, 8).setValue("true"); break; }
     }
-    cells.appendChild(cell);
+    return json({ok:true});
   }
-
-  if(selectedCalDay){
-    const sc=citas.filter(c=>c.dateStr===selectedCalDay);
-    if(sc.length) showDetail(selectedCalDay,sc); else hideDetail();
-  } else hideDetail();
-}
-
-function showDetail(dateStr,dayCitas){
-  const d=new Date(dateStr+"T12:00:00");
-  const fmt=d.toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  const panel=document.getElementById("detailPanel");
-  panel.classList.remove("hidden");
-  panel.innerHTML=`<div class="detail-panel">
-    <p class="detail-title"><i class="ti ti-calendar-event" style="vertical-align:-2px;margin-right:6px;color:#1D9E75"></i>Citas del ${fmt}</p>
-    ${dayCitas.map(c=>`
-      <div class="cita-row">
-        <div class="cita-dot" style="background:${c.noAsiste?'#E24B4A':c.asistio?'#1D9E75':'#1D9E75'}"></div>
-        <div class="cita-info">
-          <p class="cita-name">${c.itemName}</p>
-          <p class="cita-cat">${c.catName}${c.horaFmt?' · <i class="ti ti-clock" style="font-size:11px;vertical-align:-1px"></i> '+c.horaFmt:''}${c.asistio?' · <span style="color:#1D9E75;font-size:11px;font-weight:500">✓ Asistió</span>':''}${c.noAsiste?' · <span style="color:#E24B4A;font-size:11px;font-weight:500">✗ No asiste</span>':''}</p>
-        </div>
-        <div style="display:flex;gap:4px;flex-shrink:0">
-          ${!c.asistio&&!c.noAsiste?`<button onclick="marcarNoAsiste('${c.id}')" style="background:none;border:0.5px solid #E24B4A;border-radius:6px;cursor:pointer;color:#E24B4A;font-size:12px;padding:3px 8px;font-family:var(--font-sans)" title="Marcar que no asiste"><i class="ti ti-x"></i> No asiste</button>`:''}
-          <button class="cita-del" onclick="deleteCita('${c.id}')" title="Eliminar cita"><i class="ti ti-trash"></i></button>
-        </div>
-      </div>`).join("")}
-  </div>`;
-}
-
-async function marcarNoAsiste(id){
-  const cita=citas.find(c=>c.id===id);
-  if(!cita)return;
-  cita.noAsiste=true;
-  try{
-    await gsPost({action:"updateNoAsiste",id});
-    toast("Marcado como no asiste");
-  }catch(e){toast("Sin conexión, marcado localmente",false);}
-  if(selectedCalDay){
-    const sc=citas.filter(c=>c.dateStr===selectedCalDay);
-    if(sc.length) showDetail(selectedCalDay,sc);
+  if (action === "updateNoAsiste") {
+    const sh = ss.getSheetByName("Citas");
+    if (!sh) return json({ok:false});
+    const rows = sh.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === p.id) { sh.getRange(i+1, 9).setValue("true"); break; }
+    }
+    return json({ok:true});
   }
-  renderCalendar();
-}
-
-function hideDetail(){
-  document.getElementById("detailPanel").classList.add("hidden");
-}
-
-async function deleteCita(id){
-  citas=citas.filter(c=>c.id!==id);
-  if(selectedCalDay){
-    const rem=citas.filter(c=>c.dateStr===selectedCalDay);
-    if(!rem.length) selectedCalDay=null;
+  if (action === "deleteCita") {
+    const sh = ss.getSheetByName("Citas");
+    if (!sh) return json({ok:false});
+    const rows = sh.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === p.id) { sh.deleteRow(i+1); break; }
+    }
+    return json({ok:true});
   }
-  renderCalendar();
-  try{
-    await gsPost({action:"deleteCita",id});
-    toast("Cita eliminada");
-  }catch(e){toast("Sin conexión, eliminado localmente",false);}
-}
-
-async function saveData(){
-  try{
-    await gsPost({action:"saveData",data:JSON.stringify(data)});
-  }catch(e){console.warn("saveData sin conexión");}
-}
-
-function addCategory(){
-  const name=document.getElementById("newCatName").value.trim();
-  const err=document.getElementById("errCat");
-  if(!name){err.classList.remove("hidden");return;}
-  err.classList.add("hidden");
-  data.push({id:"c"+Date.now(),name,icon:rndIcon(),items:[]});
-  document.getElementById("newCatName").value="";
-  renderAdmin();renderVisitaCats();renderEmpCatSel();
-  saveData();toast("Categoría agregada");
-}
-
-function addEmprendimiento(){
-  const catId=document.getElementById("empCatSel").value;
-  const name=document.getElementById("newEmpName").value.trim();
-  const err=document.getElementById("errEmp");
-  if(!catId||!name){err.classList.remove("hidden");return;}
-  err.classList.add("hidden");
-  const cat=data.find(c=>c.id===catId);
-  if(cat) cat.items.push({name,icon:rndIcon()});
-  document.getElementById("newEmpName").value="";
-  renderAdmin();
-  if(selCat&&selCat.id===catId) renderVisitaItems();
-  saveData();toast("Emprendimiento agregado");
-}
-
-function deleteCategory(id){
-  data=data.filter(c=>c.id!==id);
-  if(selCat&&selCat.id===id){selCat=null;selItem=null;}
-  renderAdmin();renderVisitaCats();renderEmpCatSel();
-  document.getElementById("visitaItemsSec").classList.add("hidden");
-  document.getElementById("visitaDateSec").classList.add("hidden");
-  saveData();toast("Categoría eliminada");
-}
-
-function deleteItem(catId,itemName){
-  const cat=data.find(c=>c.id===catId);
-  if(cat) cat.items=cat.items.filter(i=>i.name!==itemName);
-  if(selCat&&selCat.id===catId){
-    if(selItem&&selItem.name===itemName){selItem=null;document.getElementById("visitaDateSec").classList.add("hidden");}
-    renderVisitaItems();
+  if (action === "getData") {
+    const sh = ss.getSheetByName("Categorias") || ss.insertSheet("Categorias");
+    const rows = sh.getDataRange().getValues();
+    if (rows.length <= 1) return json([]);
+    return json(rows.slice(1).map(r => JSON.parse(r[0])));
   }
-  renderAdmin();
-  saveData();toast("Emprendimiento eliminado");
-}
-
-function renderEmpCatSel(){
-  const s=document.getElementById("empCatSel");
-  s.innerHTML=data.map(c=>`<option value="${c.id}">${c.name}</option>`).join("");
-}
-
-function renderAdmin(){
-  renderEmpCatSel();
-  const el=document.getElementById("adminList");
-  if(!data.length){el.innerHTML='<p style="font-size:13px;color:var(--color-text-tertiary)">No hay categorías aún.</p>';return;}
-  el.innerHTML=data.map(cat=>`
-    <div class="card-block">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:14px;font-weight:500;color:var(--color-text-primary)"><i class="ti ${cat.icon}" style="vertical-align:-2px;margin-right:6px;font-size:15px"></i>${cat.name}</span>
-        <button class="del-btn" onclick="deleteCategory('${cat.id}')"><i class="ti ti-trash"></i></button>
-      </div>
-      ${cat.items.length
-        ?`<div style="display:flex;flex-wrap:wrap;gap:6px">${cat.items.map(item=>`
-          <span style="background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:4px 10px;font-size:12px;color:var(--color-text-primary);display:inline-flex;align-items:center;gap:6px">
-            ${item.name}
-            <button onclick="deleteItem('${cat.id}','${item.name.replace(/'/g,"\\'")}') " style="background:none;border:none;cursor:pointer;color:var(--color-text-tertiary);font-size:13px;padding:0;line-height:1"><i class="ti ti-x"></i></button>
-          </span>`).join("")}</div>`
-        :`<p style="font-size:12px;color:var(--color-text-tertiary)">Sin emprendimientos aún.</p>`}
-    </div>`).join("");
-}
-
-async function init(){
-  setLoading("Cargando datos desde Google Sheets…");
-  try{
-    // Cargar categorías
-    const cats=await gsGet({action:"getData"});
-    if(Array.isArray(cats)&&cats.length) data=cats;
-    // Cargar citas
-    const cs=await gsGet({action:"getCitas"});
-    if(Array.isArray(cs)) citas=cs;
-    toast("Datos cargados ✓");
-  }catch(e){
-    toast("Sin conexión, usando datos locales",false);
+  if (action === "saveData") {
+    const sh = ss.getSheetByName("Categorias") || ss.insertSheet("Categorias");
+    sh.clearContents();
+    sh.appendRow(["json"]);
+    JSON.parse(p.data).forEach(cat => sh.appendRow([JSON.stringify(cat)]));
+    return json({ok:true});
   }
-  setLoading(null);
-  document.getElementById("visitDate").setAttribute("min",new Date().toISOString().split("T")[0]);
-  renderVisitaCats();
-  renderEmpCatSel();
+  return json({error:"acción desconocida"});
 }
 
-init();
-
-</script>
-</body>
-</html>
+function json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
